@@ -1,6 +1,17 @@
-﻿class Program
+﻿using ApartmentNotifier.Services;
+
+class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
+    {
+        SearchManager searchManager = new SearchManager();
+
+        await searchManager.RunAsync();
+
+        Console.ReadKey();
+    }
+
+    static async Task Test()
     {
 
     }
