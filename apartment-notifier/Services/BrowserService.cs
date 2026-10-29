@@ -3,7 +3,7 @@ using Microsoft.Playwright;
 
 namespace ApartmentNotifier.Services
 {
-    public class BrowserService
+    public class BrowserService : IAsyncDisposable
     {
         private IPlaywright _playwright;
         private IBrowser _browser;
@@ -18,6 +18,7 @@ namespace ApartmentNotifier.Services
             {
                 Headless = false
             });
+
             _context = await _browser.NewContextAsync(new BrowserNewContextOptions
             {
                 ViewportSize = new ViewportSize { Width = 1280, Height = 1024 }
@@ -36,6 +37,7 @@ namespace ApartmentNotifier.Services
 
         public async Task GoToAsync(IPage page, string url)
         {
+            Console.WriteLine($"Navigating to {url}");
             await page.GotoAsync(url);
             await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
         }
@@ -53,6 +55,14 @@ namespace ApartmentNotifier.Services
             }
 
             return await _context.NewPageAsync();
+        }
+
+        //Releases resources used by the browser and Playwright
+        public async ValueTask DisposeAsync()
+        {
+            if (_context != null) await _context.CloseAsync();
+            if (_browser != null) await _browser.CloseAsync();
+            _playwright?.Dispose();
         }
     }
 }

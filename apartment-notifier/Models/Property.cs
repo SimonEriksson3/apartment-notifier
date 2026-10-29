@@ -7,11 +7,11 @@ namespace ApartmentNotifier.Models
     public class Property
     {
 
-        protected string Address { get; set; }
-        protected double Rent { get; set; }
-        protected double Size { get; set; }
-        protected double Bedrooms { get; set; }
-        protected string WebAddress { get; set; }
-        protected string Id { get; set; }
+        public string Address { get; set; }
+        public string City { get; set; }
+        public double Rent { get; set; }
+        public double Size { get; set; }
+        public string WebAddress { get; set; }
+        public string Id { get; set; }
     }
 }

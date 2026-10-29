@@ -12,19 +12,42 @@ namespace ApartmentNotifier.Services
     {
         public async Task RunAsync()
         {
-            BrowserService browser = new BrowserService();
+            await using var browser = new BrowserService();
             await browser.InitAsync();
 
-            List<string> places = new List<string>
+            //Will later need to be some sort of config file or database to store sources and places to search for
+            List<string> cities = new List<string>
             {
                 "Åstorp",
-                "Helsingborg",
-                "Göteborg"
+                //"Helsingborg",
+                //"Göteborg"
             };
 
-            BalderSource balderSource = new BalderSource(browser, places, 3, 10);
+            var allApartments = new List<Apartment>();
 
-            var test = await balderSource.GetApartmentsAsync();
+            var sources = new List<IApartmentSource>
+            {
+                new BalderSource(browser, cities, 3, 10)
+
+                //Examples for future implementation:
+                //new BostadsförmedlingenSource(),
+                //new HSBSource(),  
+                //new RiksbyggenSource()
+            };
+
+            foreach(var source in sources)
+            {
+                var apartments = await source.GetApartmentsAsync();
+                allApartments.AddRange(apartments);
+            }
+
+            foreach(var apartment in allApartments)
+            {
+                Console.WriteLine(apartment.ToString());
+            }
+
+            //TODO: Add logic for sorting through already seen apartments and notifying user of new ones
+
         }
     }
 }
