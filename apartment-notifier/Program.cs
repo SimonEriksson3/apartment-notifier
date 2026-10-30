@@ -1,4 +1,5 @@
-﻿using ApartmentNotifier.Services;
+﻿using ApartmentNotifier.Models;
+using ApartmentNotifier.Services;
 
 class Program
 {

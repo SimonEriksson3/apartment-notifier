@@ -13,26 +13,35 @@ namespace ApartmentNotifier.Sources
     /// </summary>
     public class BalderSource : IApartmentSource
     {
-        BrowserService _browser;
-        IPage _page;
-        List<string> _locations;
+        public SearchCriteria Criteria { get; }
+        private BrowserService _browser;
+        private IPage _page;
         private string _url;
 
-        public BalderSource(BrowserService browser, List<string> locations, int minNumberOfRooms, double minSize)
+        public BalderSource(BrowserService browser, SearchCriteria criteria)
         {
-            string baseUrl = "https://www.balder.se/lediga-lagenheter/";
+            Criteria = criteria;
 
+            string baseUrl = "https://www.balder.se/lediga-lagenheter/";
             _browser = browser;
-            _locations = new List<string>(locations);
+            //We apply some of the search criterias now to filter out some of the apartments directly. 
             //Add number of rooms to the URL
-            _url = baseUrl += $"?range[numberOfRooms]={minNumberOfRooms}%3A";
+
+            if (Criteria.MinBedrooms.HasValue)
+            {
+                _url = $"{baseUrl}?range[numberOfRooms]={criteria.MinBedrooms}%3A";
+            }
+            else
+            {
+                _url = baseUrl;
+            }
         }
 
         public async Task<IEnumerable<Apartment>> GetApartmentsAsync()
         {
             //Initial test, needs work
 
-            Console.WriteLine($"Getting apartments from Balder for locations: {string.Join(", ", _locations)}");
+            Console.WriteLine($"Getting apartments from Balder for locations: {string.Join(", ", Criteria.Locations)}");
 
             var apartments = new List<Apartment>();
             bool hasMorePages = true;
@@ -58,8 +67,6 @@ namespace ApartmentNotifier.Sources
                 {
                     var apartmentIdentifiers = await _page.Locator("article").AllAsync();
 
-                    Console.WriteLine($"Hittade {apartmentIdentifiers.Count} unika lägenhetskort på sida.");
-
                     if (apartmentIdentifiers.Count == 0)
                     {
                         hasMorePages = false;
@@ -84,8 +91,11 @@ namespace ApartmentNotifier.Sources
             }
             finally
             {
-                //Close the page after use
-                await _page.CloseAsync();
+                if (_page != null)
+                {
+                    //Close the page after use
+                    await _page.CloseAsync();
+                }
             }
 
             return apartments;
@@ -98,7 +108,7 @@ namespace ApartmentNotifier.Sources
             await searchField.WaitForAsync(new() { State = WaitForSelectorState.Visible });
 
             //Add each city to the search field and apply
-            foreach (string location in _locations)
+            foreach (string location in Criteria.Locations)
             {
                 await searchField.FillAsync(location);
                 var locationOption = page.GetByRole(AriaRole.Option, new() { Name = location }).First;
@@ -123,10 +133,10 @@ namespace ApartmentNotifier.Sources
             var address = (await identifier.Locator("h3").TextContentAsync())?.Trim() ?? "Unknown address";
             var location = (await identifier.Locator("h3 + span").TextContentAsync())?.Trim(); //Find the span that follows the h3 element
 
-            string city = location;
+            string city = location ?? "Unknown city";
             string area = "";
 
-            if (location.Contains('–'))
+            if (!string.IsNullOrEmpty(location) && location.Contains('–'))
             {
                 var locationParts = location.Split(new[] { '–' }, StringSplitOptions.RemoveEmptyEntries);
                 city = locationParts[0].Trim();
@@ -198,12 +208,14 @@ namespace ApartmentNotifier.Sources
         private double ParseBedrooms(string bedroomsText)
         {
             var parts = bedroomsText.Split('|');
-            if (parts.Length > 1)
-            {
-                var roomsDigit = new string(parts[1].Where(char.IsDigit).ToArray());
-                return double.TryParse(roomsDigit, out double rooms) ? rooms : 0;
-            }
-            return 0;
+            if (parts.Length < 2) return 0;
+
+            var roomParts = parts[1].Trim().Split(' ');
+            if (roomParts.Length == 0) return 0;
+
+            string rawNumber = roomParts[0].Replace(',', '.');
+
+            return double.TryParse(rawNumber, System.Globalization.CultureInfo.InvariantCulture, out double bedrooms) ? bedrooms : 0;
         }
     }
 }

@@ -10,35 +10,30 @@ namespace ApartmentNotifier.Services
 {
     public class SearchManager
     {
+        private readonly List<IApartmentSource> _sources = new List<IApartmentSource>();
+
+        public SearchManager()
+        {
+
+        }
+
         public async Task RunAsync()
         {
+            //Loading search criteria for BalderSource
+            var balderCriteria = await SearchCriteria.LoadForSourceAsync("Balder");
+
             await using var browser = new BrowserService();
             await browser.InitAsync();
 
-            //Will later need to be some sort of config file or database to store sources and places to search for
-            List<string> cities = new List<string>
-            {
-                "Åstorp",
-                //"Helsingborg",
-                //"Göteborg"
-            };
-
             var allApartments = new List<Apartment>();
 
-            var sources = new List<IApartmentSource>
-            {
-                new BalderSource(browser, cities, 3, 10)
+            _sources.Add(new BalderSource(browser, balderCriteria));
 
-                //Examples for future implementation:
-                //new BostadsförmedlingenSource(),
-                //new HSBSource(),  
-                //new RiksbyggenSource()
-            };
-
-            foreach(var source in sources)
-            {
+            foreach (var source in _sources)
+            {   
                 var apartments = await source.GetApartmentsAsync();
-                allApartments.AddRange(apartments);
+                var filteredApartments = FilterApartments(apartments, source.Criteria);
+                allApartments.AddRange(filteredApartments);
             }
 
             foreach(var apartment in allApartments)
@@ -48,6 +43,33 @@ namespace ApartmentNotifier.Services
 
             //TODO: Add logic for sorting through already seen apartments and notifying user of new ones
 
+        }
+
+        public IEnumerable<Apartment> FilterApartments(IEnumerable<Apartment> apartments, SearchCriteria criteria) {
+
+            var filtered = apartments.AsEnumerable();
+
+            if (criteria.MaxRent.HasValue)
+            {
+                filtered = filtered.Where(a => a.Rent > 0 && a.Rent <= criteria.MaxRent.Value);
+            }
+
+            if (criteria.MinSize.HasValue)
+            {
+                filtered = filtered.Where(a => a.Size >= criteria.MinSize.Value);
+            }
+
+            if (criteria.MinBedrooms.HasValue)
+            {
+                filtered = filtered.Where(a => a.Bedrooms >= criteria.MinBedrooms.Value);
+            }
+
+            if (criteria.MaxBedrooms.HasValue)
+            {
+                filtered = filtered.Where(a => a.Bedrooms <= criteria.MaxBedrooms.Value);
+            }
+
+            return filtered.ToList();
         }
     }
 }
